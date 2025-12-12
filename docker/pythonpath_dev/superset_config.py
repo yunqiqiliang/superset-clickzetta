@@ -79,6 +79,108 @@ CACHE_CONFIG = {
 DATA_CACHE_CONFIG = CACHE_CONFIG
 THUMBNAIL_CACHE_CONFIG = CACHE_CONFIG
 
+# Optimize table chart performance to reduce flashing
+TABLE_NAMES_CACHE_CONFIG = {
+    "CACHE_TYPE": "RedisCache",
+    "CACHE_DEFAULT_TIMEOUT": 600,  # Cache table names for 10 minutes
+    "CACHE_KEY_PREFIX": "superset_table_",
+    "CACHE_REDIS_HOST": REDIS_HOST,
+    "CACHE_REDIS_PORT": REDIS_PORT,
+    "CACHE_REDIS_DB": REDIS_RESULTS_DB,
+}
+
+# Disable automatic chart refresh in development
+AUTO_REFRESH_INTERVAL = 0  # Disable auto-refresh
+AUTO_REFRESH_MODE = "fetch"  # Use fetch mode instead of force mode
+
+# ===== ClickZetta Configuration =====
+# Disable SQL parsing globally to avoid backtick issues with ClickZetta
+PREVENT_UNSAFE_DB_CONNECTIONS = False
+
+# Flask app initialization callback to patch ClickZetta
+def patch_clickzetta_on_app_init(app):
+    """Patch ClickZetta dialect after app initialization"""
+    @app.before_request
+    def patch_clickzetta_once():
+        """Patch on first request"""
+        if not hasattr(app, '_clickzetta_patched'):
+            try:
+                # Correct import path for ClickZetta dialect
+                from clickzetta.connector.sqlalchemy.base import ClickZettaDialect, ClickZettaIdentifierPreparer
+
+                # Store original preparer class
+                if not hasattr(ClickZettaDialect, '_original_preparer_class'):
+                    ClickZettaDialect._original_preparer_class = ClickZettaIdentifierPreparer
+
+                # Create custom preparer class
+                class NoQuoteIdentifierPreparer(ClickZettaIdentifierPreparer):
+                    """Custom preparer that doesn't use backticks"""
+
+                    def __init__(self, dialect):
+                        super().__init__(dialect)
+
+                    def quote(self, ident, force=None, column=False):
+                        """Don't quote identifiers - match original signature"""
+                        # Clean up identifier to be SQL-safe
+                        ident_str = str(ident)
+                        # Remove special characters that would break SQL
+                        ident_str = ident_str.replace('(', '_').replace(')', '_').replace('*', 'star')
+                        ident_str = ident_str.replace(' ', '_').replace('.', '_')
+                        return ident_str
+
+                    def quote_identifier(self, value):
+                        """Don't quote identifiers"""
+                        value_str = str(value)
+                        value_str = value_str.replace('(', '_').replace(')', '_').replace('*', 'star')
+                        value_str = value_str.replace(' ', '_').replace('.', '_')
+                        return value_str
+
+                    def _quote_free_identifiers(self, *ids):
+                        """Override to not quote"""
+                        result = []
+                        for id in ids:
+                            id_str = str(id)
+                            id_str = id_str.replace('(', '_').replace(')', '_').replace('*', 'star')
+                            id_str = id_str.replace(' ', '_').replace('.', '_')
+                            result.append(id_str)
+                        return result
+
+                    def format_label(self, label, name=None):
+                        """Format label without quotes"""
+                        label_str = str(label)
+                        label_str = label_str.replace('(', '_').replace(')', '_').replace('*', 'star')
+                        label_str = label_str.replace(' ', '_').replace('.', '_')
+                        return label_str
+
+                    def format_column(self, column, use_table=False, name=None, table_name=None):
+                        """Format column without quotes"""
+                        col_name = str(name or column.name)
+                        col_name = col_name.replace('(', '_').replace(')', '_').replace('*', 'star')
+                        col_name = col_name.replace(' ', '_').replace('.', '_')
+                        return col_name
+
+                    def format_table(self, table, use_schema=True, name=None):
+                        """Format table without quotes"""
+                        if use_schema and table.schema:
+                            return f"{table.schema}.{table.name}"
+                        return str(table.name)
+
+                # Replace the preparer function to return our custom class
+                def custom_preparer(self, dialect):
+                    return NoQuoteIdentifierPreparer(dialect)
+
+                ClickZettaDialect.preparer = custom_preparer
+                app._clickzetta_patched = True
+                app.logger.info("✅ ClickZetta dialect patched to disable backticks")
+            except Exception as e:
+                app.logger.warning(f"Could not patch ClickZetta dialect: {e}")
+                import traceback
+                app.logger.warning(traceback.format_exc())
+                app._clickzetta_patched = True  # Mark as attempted
+
+# This will be called by superset/__init__.py if the function exists
+FLASK_APP_MUTATOR = patch_clickzetta_on_app_init
+
 
 class CeleryConfig:
     broker_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
@@ -113,6 +215,16 @@ WEBDRIVER_BASEURL_USER_FRIENDLY = (
     f"http://localhost:8888/{os.environ.get('SUPERSET_APP_ROOT', '/')}/"
 )
 SQLLAB_CTAS_NO_LIMIT = True
+
+# ClickZetta SQL Query Mutator - Schema handling is done at engine level via before_cursor_execute
+# This mutator is kept for potential future use but currently just passes through
+def clickzetta_sql_mutator(sql, security_manager=None, database=None):
+    """
+    SQL mutator for ClickZetta - schema handling via engine spec
+    """
+    return sql
+
+SQL_QUERY_MUTATOR = clickzetta_sql_mutator
 
 log_level_text = os.getenv("SUPERSET_LOG_LEVEL", "INFO")
 LOG_LEVEL = getattr(logging, log_level_text.upper(), logging.INFO)

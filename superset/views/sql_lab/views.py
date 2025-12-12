@@ -266,13 +266,17 @@ class TableSchemaView(BaseSupersetView):
             return json_error_response(error_msg_from_exception(ex), 400)
 
     @has_access_api
-    @expose("/<int:table_schema_id>/expanded", methods=("POST",))
-    def expanded(self, table_schema_id: int) -> FlaskResponse:
-        payload = json.loads(request.form["expanded"])
-        (
-            db.session.query(TableSchema)
-            .filter_by(id=table_schema_id)
-            .update({"expanded": payload})
-        )
-        response = json.dumps({"id": table_schema_id, "expanded": payload})
-        return json_success(response)
+    @expose("/<table_id>/expanded", methods=("POST",))
+    def expanded(self, table_id: str) -> FlaskResponse:
+        """
+        Handle table expansion toggle.
+        The table_id is a frontend-generated string ID (nanoid), not a database integer ID.
+        The frontend manages the expanded state locally, so we just return success.
+        Backend persistence for table schemas is handled through the POST / endpoint.
+        """
+        try:
+            payload = json.loads(request.form["expanded"])
+            response = json.dumps({"id": table_id, "expanded": payload})
+            return json_success(response)
+        except Exception as ex:  # pylint: disable=broad-except
+            return json_error_response(error_msg_from_exception(ex), 400)
