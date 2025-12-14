@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,34 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { QueryFormData } from '@superset-ui/core';
 
-const path = require('path');
+export interface AiButtonStylesProps {
+  height: number;
+  width: number;
+}
 
-module.exports = {
-  entry: './src/index.ts',
-  output: {
-    filename: 'index.js',
-    path: path.resolve(__dirname, 'bundle'),
+export interface AiButtonChartProps extends AiButtonStylesProps, QueryFormData {
+  data: any[];
+  // add typing here for the props you pass in from transformProps.ts!
+}
 
-    // this exposes the library's exports under a global variable
-    library: {
-      name: "supersetEmbeddedSdk",
-      type: "umd"
-    }
-  },
-  devtool: "source-map",
-  module: {
-    rules: [
-      {
-        test: /\.[tj]s$/,
-        // babel-loader is faster than ts-loader because it ignores types.
-        // We do type checking in a separate process, so that's fine.
-        use: 'babel-loader',
-        exclude: /node_modules/,
-      },
-    ],
-  },
-  resolve: {
-    extensions: ['.ts', '.js'],
-  },
+export const defaultFormData = {
+  viz_type: 'ai_button_chart',
 };

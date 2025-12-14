@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superset Dashboard - 生产环境</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        #dashboard-container {
+            width: 100%;
+            height: calc(100vh - 120px);
+            min-height: 600px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        #dashboard-container iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+        }
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1890ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            padding: 30px;
+            text-align: center;
+            color: #cf1322;
+        }
+        .error h3 {
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .error button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .error button:hover {
+            background: #40a9ff;
+        }
+        .notice {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #0050b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Superset Dashboard</h1>
+
+        <div class="notice">
+            ℹ️ <strong>只读模式：</strong> 您可以查看和交互，但无法编辑此 Dashboard
+        </div>
+
+        <div id="dashboard-container">
+            <div class="loading">
+                <div class="spinner"></div>
+                <div>正在加载 Dashboard...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Superset Embedded SDK -->
+    <script src="https://unpkg.com/@superset-ui/embedded-sdk@latest/bundle/index.js"></script>
+
+    <script>
+        // ========== 配置 ==========
+        // 优先使用 window 对象中的配置（可通过外部脚本设置）
+        // 如果没有，则使用本地开发配置
+        const CONFIG = {
+            backendUrl: window.BACKEND_URL || 'http://localhost:3001',
+            supersetUrl: window.SUPERSET_URL || 'http://localhost:8088',
+            embeddedUuid: window.EMBEDDED_UUID || '51c5173a-ae1d-4038-b417-22a72c15bb48',
+            dashboardUuid: window.DASHBOARD_UUID || '6d106529-9f27-4df9-9c9e-50e036a67559',
+            maxRetries: 3,
+            retryDelay: 2000
+        };
+
+        // ========== 工具函数 ==========
+        /**
+         * 延迟函数
+         */
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        /**
+         * 带重试的 fetch
+         */
+        async function fetchWithRetry(url, options, retries = CONFIG.maxRetries) {
+            for (let i = 0; i <= retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.message || `HTTP ${response.status}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+
+                    if (i === retries) {
+                        throw error;
+                    }
+
+                    // 指数退避
+                    const delayMs = CONFIG.retryDelay * Math.pow(2, i);
+                    console.log(`Retrying in ${delayMs}ms...`);
+                    await delay(delayMs);
+                }
+            }
+        }
+
+        /**
+         * 显示错误
+         */
+        function showError(message, canRetry = true) {
+            const container = document.getElementById('dashboard-container');
+            container.innerHTML = `
+                <div class="error">
+                    <h3>❌ 加载失败</h3>
+                    <p>${message}</p>
+                    ${canRetry ? '<button onclick="loadDashboard()">重试</button>' : ''}
+                </div>
+            `;
+        }
+
+        /**
+         * 显示加载状态
+         */
+        function showLoading(message = '正在加载 Dashboard...') {
+            const container = document.getElementById('dashboard-container');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>${message}</div>
+                </div>
+            `;
+        }
+
+        /**
+         * 获取 Guest Token
+         */
+        async function fetchGuestToken() {
+            console.log('🔐 Fetching guest token...');
+
+            const data = await fetchWithRetry(
+                `${CONFIG.backendUrl}/api/guest-token`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dashboardId: CONFIG.dashboardUuid,
+                        username: 'embedded_user'
+                    })
+                }
+            );
+
+            console.log('✅ Guest token obtained');
+            return data.token;
+        }
+
+        /**
+         * 加载 Dashboard
+         */
+        async function loadDashboard() {
+            showLoading('正在连接到 Superset...');
+
+            try {
+                const { embedDashboard } = supersetEmbeddedSdk;
+
+                await embedDashboard({
+                    id: CONFIG.embeddedUuid,
+                    supersetDomain: CONFIG.supersetUrl,
+                    mountPoint: document.getElementById('dashboard-container'),
+                    fetchGuestToken: fetchGuestToken,
+                    dashboardUiConfig: {
+                        hideTitle: false,
+                        hideTab: false,
+                        hideChartControls: false,
+                        hideFilters: false,
+                    },
+                    debug: false  // 生产环境关闭调试
+                });
+
+                console.log('✅ Dashboard loaded successfully');
+
+            } catch (error) {
+                console.error('❌ Failed to load dashboard:', error);
+
+                let errorMessage = '无法加载 Dashboard';
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = '网络连接失败，请检查网络连接';
+                } else if (error.message.includes('403')) {
+                    errorMessage = '没有权限访问此 Dashboard';
+                } else if (error.message.includes('404')) {
+                    errorMessage = 'Dashboard 不存在或未启用嵌入模式';
+                } else if (error.message.includes('Too many requests')) {
+                    errorMessage = '请求过于频繁，请稍后再试';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                showError(errorMessage);
+            }
+        }
+
+        // ========== 初始化 ==========
+        // 页面加载时自动加载 Dashboard
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Initializing Superset Embedded Dashboard');
+            console.log('Config:', {
+                backendUrl: CONFIG.backendUrl,
+                supersetUrl: CONFIG.supersetUrl,
+                embeddedUuid: CONFIG.embeddedUuid
+            });
+
+            loadDashboard();
+        });
+
+        // 网络状态监听
+        window.addEventListener('online', () => {
+            console.log('📶 Network restored');
+            const container = document.getElementById('dashboard-container');
+            if (container.querySelector('.error')) {
+                loadDashboard();
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            console.warn('📵 Network connection lost');
+            showError('网络连接已断开', false);
+        });
+    </script>
+</body>
+</html>

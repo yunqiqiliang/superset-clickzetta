@@ -82,6 +82,7 @@ import { HandlebarsChartPlugin } from '@superset-ui/plugin-chart-handlebars';
 import { FilterPlugins } from 'src/constants';
 import AgGridTableChartPlugin from '@superset-ui/plugin-chart-ag-grid-table';
 import TimeTableChartPlugin from '../TimeTable';
+import AiButtonChartPlugin from '../../../plugins/superset-plugin-chart-ai-button';
 
 export default class MainPreset extends Preset {
   constructor() {
@@ -193,6 +194,7 @@ export default class MainPreset extends Preset {
         }).configure({ key: VizType.Cartodiagram }),
         ...experimentalPlugins,
         ...agGridTablePlugin,
+        AiButtonChartPlugin.configure({ key: 'ai_button_chart' }),
       ],
     });
   }

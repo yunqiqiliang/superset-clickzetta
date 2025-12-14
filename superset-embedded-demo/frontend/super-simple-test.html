@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>超简单测试</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #000; color: #0f0; }
+        #log { background: #111; padding: 20px; border: 2px solid #0f0; margin-top: 20px; }
+        .msg { margin: 10px 0; padding: 10px; background: #222; border-left: 3px solid #0f0; }
+    </style>
+</head>
+<body>
+    <h1>🔬 超简单消息测试</h1>
+    <p>这个页面只做一件事：显示所有 postMessage</p>
+
+    <button onclick="test()" style="background: #0f0; color: #000; padding: 10px 20px; border: none; cursor: pointer;">
+        发送测试消息
+    </button>
+
+    <div id="log">
+        <div class="msg">✅ 等待消息...</div>
+    </div>
+
+    <script>
+        let count = 0;
+
+        function addLog(msg, isAI = false) {
+            const div = document.createElement('div');
+            div.className = 'msg';
+            div.style.borderLeftColor = isAI ? '#ff0' : '#0f0';
+            div.innerHTML = `<strong>[${++count}]</strong> ${msg}`;
+            document.getElementById('log').appendChild(div);
+        }
+
+        function test() {
+            window.postMessage({ type: 'ai-question', payload: 'test' }, '*');
+            addLog('📤 发送了测试消息');
+        }
+
+        window.addEventListener('message', (e) => {
+            const data = e.data;
+
+            if (!data) {
+                addLog('📭 收到空消息');
+                return;
+            }
+
+            if (typeof data !== 'object') {
+                addLog('📭 收到非对象消息: ' + data);
+                return;
+            }
+
+            if (data.type === 'ai-question') {
+                addLog(`🎉 收到 AI 消息!<br>💬 内容: "${data.payload}"<br>📍 来源: ${e.origin}`, true);
+            } else {
+                addLog(`📨 收到其他消息<br>类型: ${data.type}<br>来源: ${e.origin}`);
+            }
+        }, true);  // 使用捕获阶段
+
+        addLog('✅ 监听器已就绪');
+    </script>
+</body>
+</html>

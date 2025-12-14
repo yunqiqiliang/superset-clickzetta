@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superset Embed Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        #dashboard-container {
+            width: 100%;
+            height: calc(100vh - 160px);
+            min-height: 800px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #dashboard-container iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        h1 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        /* 隐藏 embedded dashboard 中的编辑按钮 */
+        #dashboard-container iframe {
+            pointer-events: auto;
+        }
+    </style>
+
+    <style id="hide-edit-buttons">
+        /* 这些样式会被注入到 iframe 中 */
+    </style>
+</head>
+<body>
+    <h1>Superset Dashboard 嵌入测试</h1>
+
+    <div class="info">
+        <strong>测试 Dashboard:</strong> Insurance Fraud - Agency Level 360<br>
+        <strong>Dashboard UUID:</strong> 6d106529-9f27-4df9-9c9e-50e036a67559<br>
+        <strong>Embedded UUID:</strong> 51c5173a-ae1d-4038-b417-22a72c15bb48<br>
+        <strong>后端 API:</strong> http://localhost:3001<br>
+        <strong>Superset:</strong> http://localhost:8088<br>
+        <br>
+        <strong style="color: #ff6b00;">⚠️ 注意：</strong> 此为只读模式，编辑按钮虽然可见但无法使用（这是 Superset 的安全设计）
+    </div>
+
+    <div id="dashboard-container"></div>
+
+    <!-- Superset Embedded SDK -->
+    <script src="https://unpkg.com/@superset-ui/embedded-sdk@latest/bundle/index.js"></script>
+
+    <script>
+        console.log('Starting dashboard embed...');
+
+        const { embedDashboard } = supersetEmbeddedSdk;
+
+        embedDashboard({
+            id: '51c5173a-ae1d-4038-b417-22a72c15bb48',  // 使用 Embedded UUID
+            supersetDomain: 'http://localhost:8088',
+            mountPoint: document.getElementById('dashboard-container'),
+            fetchGuestToken: async () => {
+                console.log('Fetching guest token...');
+                try {
+                    const response = await fetch('http://localhost:3001/api/guest-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            dashboardId: '6d106529-9f27-4df9-9c9e-50e036a67559',  // 后端仍使用 Dashboard UUID
+                            username: 'test_user'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        console.error('Failed to get guest token:', error);
+                        throw new Error(error.message || 'Failed to get guest token');
+                    }
+
+                    const data = await response.json();
+                    console.log('Guest token obtained successfully');
+                    return data.token;
+                } catch (error) {
+                    console.error('Error fetching guest token:', error);
+                    throw error;
+                }
+            },
+            dashboardUiConfig: {
+                hideTitle: false,
+                hideTab: false,
+                hideChartControls: false,
+                hideFilters: false,
+                // 隐藏编辑相关的功能
+                hideEdit: true,
+            },
+            debug: true
+        }).then(() => {
+            console.log('Dashboard embedded successfully!');
+
+            // 尝试隐藏 iframe 内的编辑按钮（可能受跨域限制）
+            setTimeout(() => {
+                try {
+                    const iframe = document.querySelector('#dashboard-container iframe');
+                    if (iframe && iframe.contentWindow) {
+                        const style = iframe.contentWindow.document.createElement('style');
+                        style.textContent = `
+                            [data-test="dashboard-edit-link"],
+                            [data-test="edit-alt"],
+                            button[aria-label*="Edit"],
+                            button[aria-label*="edit"],
+                            .ant-dropdown-trigger:has([data-test="more-horiz"]) {
+                                display: none !important;
+                            }
+                        `;
+                        iframe.contentWindow.document.head.appendChild(style);
+                        console.log('✅ Edit buttons hidden via CSS');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Cannot access iframe content (CORS restriction):', e.message);
+                    console.log('💡 Edit button will be visible but clicking it will show 403 error');
+                }
+            }, 2000);
+        }).catch((error) => {
+            console.error('Failed to embed dashboard:', error);
+            document.getElementById('dashboard-container').innerHTML = `
+                <div style="padding: 20px; color: red;">
+                    <h3>嵌入失败</h3>
+                    <pre>${error.message}</pre>
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

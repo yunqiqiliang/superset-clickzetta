@@ -33,8 +33,8 @@
   - any-glob-to-any-file:
     - 'superset-frontend/package.json'
     - 'superset-frontend/package-lock.json'
-    - 'superset-embedded-sdk/package.json'
-    - 'superset-embedded-sdk/package-lock.json'
+    - 'superset-embedded-demo/package.json'
+    - 'superset-embedded-demo/package-lock.json'
     - 'superset-websocket/package.json'
     - 'superset-websocket/package-lock.json'
     - 'superset-frontend/cypress-base/package.json'
@@ -149,7 +149,7 @@
 "embedded":
 - changed-files:
   - any-glob-to-any-file:
-    - 'superset-embedded-sdk/**'
+    - 'superset-embedded-demo/**'
 
 "github_actions":
 - changed-files:

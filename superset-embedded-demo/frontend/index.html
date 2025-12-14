@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superset Dashboard 嵌入式示例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #1890ff;
+            font-size: 24px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .config-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .btn-primary:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+
+        .dashboard-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        #superset-container {
+            width: 100%;
+            height: calc(100vh - 400px);
+            min-height: 600px;
+        }
+
+        #superset-container iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: calc(100vh - 400px);
+            min-height: 600px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .error {
+            padding: 20px;
+            background: #fff1f0;
+            border: 1px solid #ffccc7;
+            border-radius: 4px;
+            color: #cf1322;
+            margin: 20px;
+        }
+
+        .info-box {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 15px 0;
+            font-size: 13px;
+            color: #0050b3;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #8c8c8c;
+            margin-top: 4px;
+        }
+
+        .warning-box {
+            background: #fff7e6;
+            border: 1px solid #ffd591;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 15px 0;
+            font-size: 13px;
+            color: #d46b08;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Superset Dashboard 嵌入式示例</h1>
+    </div>
+
+    <div class="container">
+        <div class="config-panel">
+            <h2>配置</h2>
+
+            <div class="warning-box">
+                ⚠️ <strong>重要：</strong>此页面需要先为 Dashboard 启用 embedded 模式。<br>
+                使用脚本：<code>./scripts/enable-dashboard-embedded.sh &lt;DASHBOARD_UUID&gt;</code>
+            </div>
+
+            <div class="info-box">
+                💡 <strong>如何使用：</strong><br>
+                1. 从下拉列表选择一个 Dashboard<br>
+                2. 点击"启用 Embedded"按钮（自动调用后端 API）<br>
+                3. 等待启用完成后，点击"加载 Dashboard"
+            </div>
+
+            <div class="form-group">
+                <label for="dashboard-select">选择 Dashboard:</label>
+                <select id="dashboard-select">
+                    <option value="">加载中...</option>
+                </select>
+                <span class="help-text">选择后会自动填充下方的 UUID</span>
+            </div>
+
+            <div class="form-group">
+                <label for="dashboard-uuid">Dashboard UUID:</label>
+                <input
+                    type="text"
+                    id="dashboard-uuid"
+                    placeholder="例如: 6d106529-9f27-4df9-9c9e-50e036a67559"
+                    readonly
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="embedded-uuid">Embedded UUID:</label>
+                <input
+                    type="text"
+                    id="embedded-uuid"
+                    placeholder="启用 embedded 后会自动填充"
+                    readonly
+                >
+                <span class="help-text">用于前端 embedDashboard 的 UUID</span>
+            </div>
+
+            <div class="form-group">
+                <label for="backend-url">后端 API 地址:</label>
+                <input
+                    type="text"
+                    id="backend-url"
+                    value="http://localhost:3001"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="superset-url">Superset 地址:</label>
+                <input
+                    type="text"
+                    id="superset-url"
+                    value="http://localhost:8088"
+                >
+            </div>
+
+            <button class="btn btn-primary" onclick="enableEmbedded()" id="enable-btn" style="margin-right: 10px;">
+                启用 Embedded
+            </button>
+
+            <button class="btn btn-primary" onclick="loadDashboard()" id="load-btn">
+                加载 Dashboard
+            </button>
+        </div>
+
+        <div class="dashboard-container">
+            <div id="superset-container" class="loading">
+                请选择 Dashboard 并启用 Embedded 模式
+            </div>
+        </div>
+    </div>
+
+    <!-- Superset Embedded SDK -->
+    <script src="https://unpkg.com/@superset-ui/embedded-sdk@latest/bundle/index.js"></script>
+
+    <script>
+        const { embedDashboard } = supersetEmbeddedSdk;
+
+        // 已知的 Embedded UUID 映射（避免重复启用）
+        const embeddedCache = {
+            '6d106529-9f27-4df9-9c9e-50e036a67559': '51c5173a-ae1d-4038-b417-22a72c15bb48'
+        };
+
+        // 页面加载时获取可用的 dashboards
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadDashboardList();
+        });
+
+        /**
+         * 加载可用的 Dashboards 列表
+         */
+        async function loadDashboardList() {
+            const select = document.getElementById('dashboard-select');
+            const backendUrl = document.getElementById('backend-url').value;
+
+            try {
+                const response = await fetch(`${backendUrl}/api/dashboards`);
+                const data = await response.json();
+
+                if (data.dashboards && data.dashboards.length > 0) {
+                    select.innerHTML = '<option value="">请选择一个 Dashboard</option>';
+                    data.dashboards.forEach(dashboard => {
+                        const option = document.createElement('option');
+                        option.value = dashboard.uuid;
+                        option.textContent = `${dashboard.title} (ID: ${dashboard.id})`;
+                        option.dataset.title = dashboard.title;
+                        select.appendChild(option);
+                    });
+
+                    // 监听选择变化
+                    select.addEventListener('change', (e) => {
+                        const dashboardUuid = e.target.value;
+                        document.getElementById('dashboard-uuid').value = dashboardUuid;
+
+                        // 如果缓存中有 embedded UUID，自动填充
+                        if (embeddedCache[dashboardUuid]) {
+                            document.getElementById('embedded-uuid').value = embeddedCache[dashboardUuid];
+                            document.getElementById('load-btn').disabled = false;
+                        } else {
+                            document.getElementById('embedded-uuid').value = '';
+                            document.getElementById('load-btn').disabled = true;
+                        }
+                    });
+                } else {
+                    select.innerHTML = '<option value="">未找到 Dashboards</option>';
+                }
+            } catch (error) {
+                console.error('Failed to load dashboards:', error);
+                select.innerHTML = '<option value="">加载失败</option>';
+            }
+        }
+
+        /**
+         * 启用 Dashboard 的 Embedded 模式
+         */
+        async function enableEmbedded() {
+            const dashboardUuid = document.getElementById('dashboard-uuid').value.trim();
+            const backendUrl = document.getElementById('backend-url').value.trim();
+            const enableBtn = document.getElementById('enable-btn');
+
+            if (!dashboardUuid) {
+                alert('请先选择一个 Dashboard');
+                return;
+            }
+
+            // 检查缓存
+            if (embeddedCache[dashboardUuid]) {
+                document.getElementById('embedded-uuid').value = embeddedCache[dashboardUuid];
+                document.getElementById('load-btn').disabled = false;
+                alert('此 Dashboard 已启用 Embedded 模式！');
+                return;
+            }
+
+            enableBtn.disabled = true;
+            enableBtn.textContent = '启用中...';
+
+            try {
+                console.log('📊 Enabling embedded mode via backend API...');
+
+                // 调用后端 API 启用 embedded
+                const response = await fetch(`${backendUrl}/api/enable-embedded`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dashboardUuid: dashboardUuid
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to enable embedded mode');
+                }
+
+                const data = await response.json();
+                const embeddedUuid = data.embeddedUuid;
+
+                console.log('✅ Embedded mode enabled:', data);
+
+                // 保存到缓存
+                embeddedCache[dashboardUuid] = embeddedUuid;
+
+                // 填充到输入框
+                document.getElementById('embedded-uuid').value = embeddedUuid;
+                document.getElementById('load-btn').disabled = false;
+
+                alert(`✅ Embedded 模式已启用！\n\nEmbedded UUID: ${embeddedUuid}`);
+            } catch (error) {
+                console.error('Failed to enable embedded:', error);
+                alert('❌ 启用失败：' + error.message);
+            } finally {
+                enableBtn.disabled = false;
+                enableBtn.textContent = '启用 Embedded';
+            }
+        }
+
+        /**
+         * 获取 Access Token（不再需要）
+         */
+        async function getAccessToken(backendUrl) {
+            // 已通过后端 API 处理
+            return '';
+        }
+
+        /**
+         * 加载 Dashboard
+         */
+        async function loadDashboard() {
+            const dashboardUuid = document.getElementById('dashboard-uuid').value.trim();
+            const embeddedUuid = document.getElementById('embedded-uuid').value.trim();
+            const backendUrl = document.getElementById('backend-url').value.trim();
+            const supersetUrl = document.getElementById('superset-url').value.trim();
+            const container = document.getElementById('superset-container');
+            const loadBtn = document.getElementById('load-btn');
+
+            if (!dashboardUuid || !embeddedUuid) {
+                alert('请先选择 Dashboard 并启用 Embedded 模式');
+                return;
+            }
+
+            // 显示加载状态
+            container.innerHTML = '<div class="loading">正在加载 Dashboard...</div>';
+            loadBtn.disabled = true;
+            loadBtn.textContent = '加载中...';
+
+            try {
+                console.log('Loading dashboard:', {
+                    dashboardUuid,
+                    embeddedUuid,
+                    supersetUrl
+                });
+
+                // 嵌入 Dashboard（使用 Embedded UUID）
+                await embedDashboard({
+                    id: embeddedUuid,  // 使用 Embedded UUID ✅
+                    supersetDomain: supersetUrl,
+                    mountPoint: container,
+                    fetchGuestToken: async () => {
+                        // 从后端获取 guest token（使用 Dashboard UUID）
+                        const response = await fetch(`${backendUrl}/api/guest-token`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                dashboardId: dashboardUuid,  // 使用 Dashboard UUID ✅
+                                username: 'demo_user'
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.message || 'Failed to get guest token');
+                        }
+
+                        const data = await response.json();
+                        console.log('✅ Guest token obtained');
+                        return data.token;
+                    },
+                    dashboardUiConfig: {
+                        hideTitle: false,
+                        hideTab: false,
+                        hideChartControls: false,
+                        hideFilters: false,
+                    },
+                    debug: true
+                });
+
+                console.log('✅ Dashboard loaded successfully');
+                loadBtn.textContent = '加载 Dashboard';
+                loadBtn.disabled = false;
+
+            } catch (error) {
+                console.error('❌ Failed to load dashboard:', error);
+                container.innerHTML = `
+                    <div class="error">
+                        <h3>加载失败</h3>
+                        <p>${error.message}</p>
+                        <p><strong>请检查：</strong></p>
+                        <ul>
+                            <li>Superset 服务是否运行（${supersetUrl}）</li>
+                            <li>后端 API 是否运行（${backendUrl}）</li>
+                            <li>Dashboard 是否已启用 Embedded 模式</li>
+                            <li>Embedded UUID 是否正确</li>
+                            <li>查看浏览器控制台获取详细错误信息</li>
+                        </ul>
+                    </div>
+                `;
+                loadBtn.textContent = '重试';
+                loadBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

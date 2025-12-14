@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Dashboard Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .header {
+            background: #20639B;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .instructions h2 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        .test-frame {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .log-panel {
+            background: #1e1e1e;
+            color: #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #333;
+        }
+        .ai-message {
+            color: #00ffff;
+            font-weight: bold;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        button {
+            background: #20639B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1a5380;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Direct Dashboard Test (不使用 Embedded SDK)</h1>
+        <p>直接访问 Superset Dashboard，测试 AI Button 消息</p>
+    </div>
+
+    <div class="container">
+        <div class="instructions">
+            <h2>📋 测试步骤：</h2>
+            <ol>
+                <li>下方 iframe 会加载你的 Superset Dashboard</li>
+                <li>找到 Dashboard 中的 "AI Button Chart"</li>
+                <li>点击 "Ask AI" 按钮</li>
+                <li>输入问题</li>
+                <li>查看下方的日志面板是否收到消息</li>
+            </ol>
+            <p style="margin-top: 15px; color: #856404;">
+                <strong>💡 提示：</strong> 如果需要登录，请在新标签页登录 Superset 后再刷新本页面
+            </p>
+        </div>
+
+        <div class="test-frame">
+            <h2>📊 Superset Dashboard</h2>
+            <button onclick="reloadDashboard()">🔄 重新加载 Dashboard</button>
+            <button onclick="openInNewTab()">🔗 在新标签页打开</button>
+            <div style="margin-top: 10px;">
+                <iframe
+                    id="dashboard-frame"
+                    src="http://localhost:8088/superset/dashboard/6d106529-9f27-4df9-9c9e-50e036a67559/?standalone=3"
+                ></iframe>
+            </div>
+        </div>
+
+        <div class="test-frame">
+            <h2>📨 消息日志</h2>
+            <button onclick="clearLog()">🗑️ 清空日志</button>
+            <button onclick="testMessage()">🧪 发送测试消息</button>
+            <div>
+                消息总数: <strong id="count">0</strong> |
+                AI 消息: <strong id="ai-count">0</strong>
+            </div>
+            <div class="log-panel" id="log">
+                <div class="log-entry success">✅ 日志系统已启动，等待消息...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let messageCount = 0;
+        let aiMessageCount = 0;
+
+        function log(message, className = '') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + className;
+
+            const timestamp = new Date().toLocaleTimeString() + '.' + new Date().getMilliseconds();
+            entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
+
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateCount() {
+            document.getElementById('count').textContent = messageCount;
+            document.getElementById('ai-count').textContent = aiMessageCount;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '<div class="log-entry success">✅ 日志已清空</div>';
+            messageCount = 0;
+            aiMessageCount = 0;
+            updateCount();
+        }
+
+        function testMessage() {
+            window.postMessage({
+                type: 'ai-question',
+                payload: 'Test message from button'
+            }, '*');
+            log('🧪 发送测试消息', 'success');
+        }
+
+        function reloadDashboard() {
+            document.getElementById('dashboard-frame').src = document.getElementById('dashboard-frame').src;
+            log('🔄 重新加载 Dashboard', 'success');
+        }
+
+        function openInNewTab() {
+            window.open('http://localhost:8088/superset/dashboard/6d106529-9f27-4df9-9c9e-50e036a67559/', '_blank');
+        }
+
+        // 监听所有消息
+        window.addEventListener('message', (event) => {
+            messageCount++;
+
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            log(`📍 来源: ${event.origin}`);
+            log(`📦 数据类型: ${typeof event.data}`);
+
+            if (event.data && typeof event.data === 'object') {
+                const dataStr = JSON.stringify(event.data, null, 2);
+                log(`📄 完整数据: <pre>${dataStr}</pre>`);
+
+                if (event.data.type === 'ai-question') {
+                    aiMessageCount++;
+                    log(`<strong>🎉 检测到 AI 问题!</strong>`, 'ai-message');
+                    log(`💬 问题内容: "${event.data.payload}"`, 'ai-message');
+                } else if (event.data.type) {
+                    log(`ℹ️ 消息类型: ${event.data.type}`);
+                }
+            } else {
+                log(`📄 数据: ${event.data}`);
+            }
+
+            updateCount();
+        }, true);
+
+        log('🚀 开始监听 postMessage 事件...', 'success');
+        log('💡 在 Dashboard 中找到 "AI Button Chart" 并点击 "Ask AI"', 'success');
+    </script>
+</body>
+</html>

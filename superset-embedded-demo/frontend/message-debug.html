@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Debug Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+        .log {
+            background: #000;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #333;
+        }
+        .timestamp {
+            color: #888;
+        }
+        .type-ai {
+            color: #00ffff;
+            font-weight: bold;
+        }
+        .type-other {
+            color: #ffff00;
+        }
+        h1 {
+            color: #00ff00;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00dd00;
+        }
+        .test-button {
+            background: #ff9900;
+        }
+        .test-button:hover {
+            background: #dd7700;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 AI Button Message Debug Console</h1>
+    <p>这个页面会捕获所有 postMessage 消息，帮助调试</p>
+
+    <div>
+        <button onclick="clearLog()">清空日志</button>
+        <button class="test-button" onclick="sendTestMessage()">发送测试消息</button>
+    </div>
+
+    <h2>📨 消息日志:</h2>
+    <div class="log" id="log"></div>
+
+    <h2>📊 统计:</h2>
+    <div class="log">
+        <div>总消息数: <span id="total">0</span></div>
+        <div>AI 消息数: <span id="ai-count">0</span></div>
+        <div>其他消息数: <span id="other-count">0</span></div>
+    </div>
+
+    <script>
+        let totalCount = 0;
+        let aiCount = 0;
+        let otherCount = 0;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString() + '.' + now.getMilliseconds();
+
+            entry.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span>
+                <span class="${type}">${message}</span>
+            `;
+
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('total').textContent = totalCount;
+            document.getElementById('ai-count').textContent = aiCount;
+            document.getElementById('other-count').textContent = otherCount;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            totalCount = 0;
+            aiCount = 0;
+            otherCount = 0;
+            updateStats();
+            log('日志已清空', 'info');
+        }
+
+        function sendTestMessage() {
+            const testMessage = {
+                type: 'ai-question',
+                payload: 'This is a test message from debug page'
+            };
+            window.postMessage(testMessage, '*');
+            log('✅ 发送测试消息: ' + JSON.stringify(testMessage), 'type-ai');
+        }
+
+        // 监听所有 postMessage
+        window.addEventListener('message', (event) => {
+            totalCount++;
+
+            const origin = event.origin || 'same-origin';
+            const data = event.data;
+
+            log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
+            log(`📍 Origin: ${origin}`, 'info');
+            log(`📦 Data Type: ${typeof data}`, 'info');
+
+            if (data && typeof data === 'object') {
+                log(`🔑 Keys: ${Object.keys(data).join(', ')}`, 'info');
+
+                if (data.type === 'ai-question') {
+                    aiCount++;
+                    log(`✅ AI-QUESTION DETECTED!`, 'type-ai');
+                    log(`💬 Payload: ${data.payload}`, 'type-ai');
+                } else {
+                    otherCount++;
+                    log(`ℹ️ Type: ${data.type || 'undefined'}`, 'type-other');
+                }
+
+                log(`📄 Full Data: ${JSON.stringify(data, null, 2)}`, 'info');
+            } else {
+                otherCount++;
+                log(`📄 Data: ${data}`, 'type-other');
+            }
+
+            updateStats();
+        }, true); // 使用捕获阶段
+
+        // 页面加载完成
+        log('🚀 Debug Console 已启动，正在监听所有 postMessage...', 'type-ai');
+        log('💡 请在另一个标签页打开 ai-button-demo.html 并点击 "Ask AI"', 'info');
+        log('💡 或者直接在这个页面嵌入 Superset Dashboard 进行测试', 'info');
+    </script>
+</body>
+</html>

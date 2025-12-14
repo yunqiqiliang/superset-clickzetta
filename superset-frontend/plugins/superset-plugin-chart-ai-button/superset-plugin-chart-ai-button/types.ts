@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,9 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { QueryFormData } from '@superset-ui/core';
 
-export const IFRAME_COMMS_MESSAGE_TYPE = "__embedded_comms__";
-export const DASHBOARD_UI_FILTER_CONFIG_URL_PARAM_KEY: { [index: string]: any } = {
-  visible: "show_filters",
-  expanded: "expand_filters",
+export interface AiButtonStylesProps {
+  height: number;
+  width: number;
 }
+
+export interface AiButtonChartProps extends AiButtonStylesProps, QueryFormData {
+  data: any[];
+  // add typing here for the props you pass in from transformProps.ts!
+}
+
+export const defaultFormData = {
+  viz_type: 'ai_button_chart',
+};

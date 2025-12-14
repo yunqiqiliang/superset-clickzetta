@@ -207,8 +207,56 @@ class CeleryConfig:
 
 CELERY_CONFIG = CeleryConfig
 
-FEATURE_FLAGS = {"ALERT_REPORTS": True}
+FEATURE_FLAGS = {
+    "ALERT_REPORTS": True,
+    "EMBEDDED_SUPERSET": True,  # 启用嵌入式功能
+}
 ALERT_REPORTS_NOTIFICATION_DRY_RUN = True
+
+# ========== 嵌入式配置 ==========
+# 允许嵌入的域名
+EMBEDDED_DOMAINS = [
+    "http://localhost:3000",  # React/Vue 等前端开发服务器
+    "http://localhost:3001",  # 后端 API
+    "http://localhost:3002",  # 前端示例页面
+    "http://localhost:8080",
+    "http://localhost:5173",  # Vite 默认端口
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:5173",
+    "null",  # 允许 file:// 协议（本地文件）
+]
+
+# CORS 配置（允许跨域请求）
+ENABLE_CORS = True
+CORS_OPTIONS = {
+    "supports_credentials": True,
+    "allow_headers": ["*"],
+    "resources": ["*"],
+    "origins": EMBEDDED_DOMAINS,
+}
+
+# 开发环境：禁用 CSRF 保护以简化测试（生产环境请移除）
+WTF_CSRF_ENABLED = False
+
+# Talisman 配置 - 允许嵌入（开发环境）
+TALISMAN_ENABLED = False
+
+# 或者如果需要保持 Talisman，配置 CSP 允许嵌入
+# TALISMAN_CONFIG = {
+#     "content_security_policy": None,
+#     "force_https": False,
+# }
+
+# Guest token 使用的默认角色（开发环境使用 Admin 以避免权限问题）
+PUBLIC_ROLE_LIKE = "Admin"
+
+# Session cookie 配置（嵌入式需要）
+SESSION_COOKIE_SAMESITE = "None"  # 允许跨站点 cookie
+SESSION_COOKIE_SECURE = False  # 开发环境设为 False，生产环境 HTTPS 必须设为 True
+SESSION_COOKIE_HTTPONLY = True
 WEBDRIVER_BASEURL = f"http://superset_app{os.environ.get('SUPERSET_APP_ROOT', '/')}/"  # When using docker compose baseurl should be http://superset_nginx{ENV{BASEPATH}}/  # noqa: E501
 # The base URL for the email report hyperlinks.
 WEBDRIVER_BASEURL_USER_FRIENDLY = (

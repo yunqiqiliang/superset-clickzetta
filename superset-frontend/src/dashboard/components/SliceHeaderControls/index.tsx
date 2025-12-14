@@ -61,6 +61,7 @@ import { useDatasetDrillInfo } from 'src/hooks/apiResources/datasets';
 import { ResourceStatus } from 'src/hooks/apiResources/apiResources';
 import { useCrossFiltersScopingModal } from '../nativeFilters/FilterBar/CrossFilters/ScopingModal/useCrossFiltersScopingModal';
 import { ViewResultsModalTrigger } from './ViewResultsModalTrigger';
+import { AskAiModal } from './AskAiModal';
 
 const RefreshTooltip = styled.div`
   ${({ theme }) => css`
@@ -153,6 +154,7 @@ const SliceHeaderControls = (
   props: SliceHeaderControlsPropsWithRouter | SliceHeaderControlsProps,
 ) => {
   const [drillModalIsOpen, setDrillModalIsOpen] = useState(false);
+  const [askAiModalVisible, setAskAiModalVisible] = useState(false);
   // setting openKeys undefined falls back to uncontrolled behaviour
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [openScopingModal, scopingModal] = useCrossFiltersScopingModal(
@@ -297,6 +299,10 @@ const SliceHeaderControls = (
         }
         break;
       }
+      case MenuKeys.AskAi: {
+        setAskAiModalVisible(true);
+        break;
+      }
       default:
         break;
     }
@@ -425,6 +431,16 @@ const SliceHeaderControls = (
       ),
     });
   }
+
+  // Add AI menu item
+  newMenuItems.push({
+    key: MenuKeys.AskAi,
+    label: (
+      <div data-test="ask-ai-menu-item">
+        {t('Ask AI')} <Icons.CommentOutlined css={dropdownIconsStyles} />
+      </div>
+    ),
+  });
 
   if (canExplore || canViewTable) {
     newMenuItems.push({
@@ -590,6 +606,14 @@ const SliceHeaderControls = (
         chartId={slice.slice_id}
         showModal={drillModalIsOpen}
         dataset={datasetWithVerboseMap}
+      />
+
+      <AskAiModal
+        chartId={slice.slice_id}
+        chartName={slice.slice_name}
+        dashboardId={props.dashboardId}
+        visible={askAiModalVisible}
+        onClose={() => setAskAiModalVisible(false)}
       />
 
       {canEditCrossFilters && scopingModal}
