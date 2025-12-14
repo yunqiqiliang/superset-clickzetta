@@ -139,8 +139,9 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({
       title={t('Ask AI about "%s"', chartName)}
       show={visible}
       onHide={handleCancel}
-      footer={null}
+      footer={<></>}
       width={600}
+      responsive
     >
       <InputContainer>
         <StyledInput

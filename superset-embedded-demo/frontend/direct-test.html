@@ -198,7 +198,7 @@
                 if (event.data.type === 'ai-question') {
                     aiMessageCount++;
                     log(`<strong>🎉 检测到 AI 问题!</strong>`, 'ai-message');
-                    log(`💬 问题内容: "${event.data.payload}"`, 'ai-message');
+                    log(`💬 问题内容: "${event.data.payload.question}"`, 'ai-message');
                 } else if (event.data.type) {
                     log(`ℹ️ 消息类型: ${event.data.type}`);
                 }

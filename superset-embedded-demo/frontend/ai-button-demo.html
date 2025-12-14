@@ -249,7 +249,7 @@
             if (event.data && typeof event.data === 'object') {
                 if (event.data.type === 'ai-question') {
                     console.log('✅ AI Question detected!');
-                    handleAiQuestion(event.data.payload);
+                    handleAiQuestion(event.data.payload.question);
                 } else {
                     console.log('ℹ️ Other message type:', event.data.type);
                 }
